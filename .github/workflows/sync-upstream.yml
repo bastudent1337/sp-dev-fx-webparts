@@ -1,0 +1,34 @@
+# TEMPLATE OF RECORD — the live copies run on each bastudent1337/<fork>'s `ops`
+# branch; this in-repo copy exists so the workflow is auditable and recoverable
+# from claude-skills itself. When instantiating for a fork: adjust the two
+# occurrences of the upstream repo in the comment + `--source` flag, and the
+# `--branch` flag (list-formatting's default branch is `master`, not `main`).
+# Forks have GitHub Actions DISABLED by default — the owner must enable it in
+# the fork's Actions tab or neither cron nor workflow_dispatch will work
+# (dispatch returns 404).
+
+name: sync-upstream
+# Lives on the non-default `ops` branch on purpose: `main` stays a byte-pristine,
+# fast-forward-only mirror of pnp/sp-dev-fx-webparts (fork SHAs == upstream
+# SHAs), which keeps every vendored pin resolvable against upstream history.
+# The weekly digest session triggers this via workflow_dispatch with ref=ops.
+# The cron below is inert while `ops` is not the repository default branch; set the
+# default branch to `ops` to activate scheduled runs (then mind GitHub's 60-day
+# scheduled-workflow auto-disable on inactive repos).
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 12 * * 1"
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fast-forward main from upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # gh repo sync uses the merge-upstream API: with a pristine main this is a
+        # fast-forward; on divergence it fails loudly instead of rewriting history.
+        # Never add --force — a loud failure here is the pristine-mirror guard.
+        run: gh repo sync ${{ github.repository }} --source pnp/sp-dev-fx-webparts --branch main
